@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content, viewport-fit=cover">
+<title>Observer's Home</title>
+<style>
+  :root{--ink:#5c6675;--ink2:#8b95a4;--ink3:#aab3c0;--accent:#8ba6c9;
+    --glass:rgba(255,255,255,.42);--line:rgba(255,255,255,.55);
+    --shadow:0 10px 28px -14px rgba(110,130,165,.45);--user:rgba(139,166,201,.85);}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;}
+  body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    background:linear-gradient(160deg,#e9eef3,#dfe6ee 60%,#d6dfe9);
+    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;color:var(--ink);position:fixed;inset:0;overflow:hidden;
+  }
+  @media (max-width:480px){
+    body{padding:0;}
+    .phone{width:100vw;height:100dvh;border-radius:0;padding:0;box-shadow:none;}
+    .screen{border-radius:0;}
+    .island{display:none;}
+  }
+  .glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.1);-webkit-backdrop-filter:blur(18px) saturate(1.1);
+    border:1px solid var(--line);box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.6);}
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+  svg{display:block;}
+  .phone{position:relative;width:378px;height:772px;border-radius:52px;
+    background:linear-gradient(160deg,#c3ccd8,#aab6c6);padding:13px;
+    box-shadow:0 44px 100px -34px rgba(90,110,140,.6),0 0 0 2px rgba(255,255,255,.25) inset;
+    overflow:hidden;
+  }
+  .screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;display:flex;flex-direction:column;
+    background:linear-gradient(160deg,#e6ecf3,#dbe3ed 55%,#cfd9e6) center/cover no-repeat;
+  }
+  .screen::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(238,242,246,.32),rgba(228,235,243,.5));z-index:0;}
+  .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:100px;height:25px;background:#1c2027;border-radius:20px;z-index:60;}
+  .statusbar{position:relative;z-index:20;height:44px;flex:0 0 44px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 22px 4px;font-size:12.5px;font-weight:600;color:var(--ink);}
+  .statusbar .right{display:flex;gap:5px;align-items:center;}
+  .bars{display:flex;gap:2px;align-items:flex-end;height:10px;}
+  .bars i{width:3px;background:var(--ink);border-radius:1px;}
+  .bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:10px}
+  .batt{width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;position:relative;}
+  .batt::after{content:"";position:absolute;right:-3px;top:3px;width:2px;height:5px;background:var(--ink);border-radius:0 1px 0;}
+  .batt i{position:absolute;inset:1.5px;width:74%;background:var(--ink);border-radius:1px;}
+  .stage{position:relative;z-index:10;flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+  .page{position:absolute;inset:0;display:none;flex-direction:column;gap:10px;
+    overflow:hidden;
+    padding:6px 14px 12px;
+  }
+  .page.active{display:flex;animation:fade .4s ease;}
+  .page::-webkit-scrollbar{width:0;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ===== 主页 - 压缩版，确保不滚动 ===== */
+  #pageHome {padding: 10px 12px 12px; gap:10px;}
+  #pageHome > .home-scroll {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 4px;
+  }
+  #pageHome > .home-scroll::-webkit-scrollbar{width:0;}
+  .profile{position:relative;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;min-height:180px;justify-content:flex-end;flex:0 0 auto;}
+  .profile .pcover{position:absolute;inset:0;z-index:0;background:linear-gradient(140deg,#cdd9e8,#bcc9dc 55%,#c8bcd0) center/cover no-repeat;}
+  .profile .pmask{position:absolute;left:0;right:0;bottom:0;height:62%;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.55) 55%,rgba(255,255,255,.85));}
+  .profile .ava{position:relative;z-index:2;margin:0 auto;width:64px;height:64px;border-radius:50%;
+    background:#dfe7f0 center/cover no-repeat;border:3px solid rgba(255,255,255,.85);box-shadow:0 6px 16px -8px rgba(80,100,135,.7);
+    display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden;}
+  .profile .body{position:relative;z-index:2;text-align:center;padding:8px 16px 14px;}
+  .profile .name{font-size:18px;font-weight:700;letter-spacing:1px;}
+  .profile .sig{font-size:11px;color:var(--ink2);margin-top:5px;line-height:1.6;}
+  .profile .sig .cy{color:var(--accent);}
+  .profile .tag{display:inline-block;margin-top:6px;font-size:10.5px;color:var(--ink2);}
+  .profile .days{font-size:10px;color:var(--accent);margin-top:5px;letter-spacing:.5px;}
+  .homerow{display:flex;gap:8px;align-items:stretch;flex:0 0 auto;}
+  .grid{flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .calcard{flex:1;border-radius:18px;padding:10px 8px 8px;display:flex;flex-direction:column;gap:5px;}
+  .calcard .cmon{font-size:11px;font-weight:700;color:var(--ink);text-align:center;letter-spacing:.5px;}
+  .calcard .cgrid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:1px;flex:1;}
+  .calcard .cgrid span{font-size:8.5px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);min-height:14px;}
+  .calcard .cgrid .hd{color:var(--ink3);font-weight:700;font-size:7.5px;}
+  .calcard .cgrid .today{background:var(--accent);color:#fff;font-weight:700;}
+  .cell{border-radius:18px;padding:12px 4px 9px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:transform .15s;color:var(--ink);}
+  .cell:active{transform:scale(.93);}
+  .cell .ic svg{width:22px;height:22px;}
+  .cell .lb{font-size:10.5px;letter-spacing:.5px;}
+  .player{border-radius:20px;padding:12px 14px;display:flex;flex-direction:column;gap:9px;flex:0 0 auto;}
+  .player .top{display:flex;gap:12px;align-items:center;}
+  .player .disc{width:44px;height:44px;border-radius:50%;flex:0 0 44px;background:conic-gradient(#c6d3e4,#dfe7f0,#c6d3e4);position:relative;
+    box-shadow:0 4px 12px -5px rgba(110,130,165,.5);animation:spin 8s linear infinite;animation-play-state:paused;}
+  .player .disc.playing{animation-play-state:running;}
+  .player .disc::after{content:"";position:absolute;inset:40% 40%;background:#eef2f6;border-radius:50%;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .player .info{flex:1;min-width:0;}
+  .player .ti{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .player .su{font-size:10.5px;color:var(--ink2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .times{display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink2);}
+  .player .bar{height:3.5px;border-radius:3px;background:rgba(140,160,190,.25);position:relative;overflow:hidden;cursor:pointer;}
+  .player .bar b{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);border-radius:3px;}
+  .player .ctrl{display:flex;align-items:center;justify-content:center;gap:24px;color:var(--ink);}
+  .player .ctrl .cbtn{cursor:pointer;color:var(--ink);}
+  .player .ctrl .cbtn svg{width:20px;height:20px;}
+  .player .ctrl .pp{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .player .ctrl .pp svg{width:15px;height:15px;}
+  .quote{border-radius:20px;padding:12px 14px;font-size:11.5px;color:var(--ink2);line-height:1.8;flex:0 0 auto;}
+  .quote b{color:var(--ink);font-weight:600;display:block;margin-bottom:4px;font-size:12px;}
+
+  /* ===== 聊天页面 ===== */
+  #pageChat,#pageBook,#pageNote,#pageMusic,#pageWallet{padding:0;gap:0;}
+  #pageChat.page.active { flex-direction: column; overflow: hidden; }
+  .chat-top{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:8px 14px 10px;position:relative;z-index:5;border-radius:0 0 22px 22px;margin:0;}
+  .chat-top .back,.chat-top .tool{width:32px;height:32px;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);}
+  .chat-top .back svg{width:20px;height:20px;}.chat-top .tool svg{width:19px;height:19px;color:var(--ink2);}
+  .chat-top .cava{width:34px;height:34px;border-radius:50%;overflow:hidden;background:#dfe7f0 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 34px;}
+  .chat-top .meta{flex:1;min-width:0;}
+  .chat-top .nm{font-size:15px;font-weight:600;line-height:1.2;}
+  .chat-top .stt{font-size:10.5px;color:var(--accent);display:flex;align-items:center;gap:4px;}
+  .dot{width:6px;height:6px;border-radius:50%;background:#8fc7a8;box-shadow:0 0 6px #8fc7a8;}
+  .messages{flex:1;overflow-y:auto;padding:8px 14px 10px;display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .messages::-webkit-scrollbar{width:0;}
+  .row{display:flex;gap:8px;align-items:flex-end;max-width:100%;}
+  .row.me{flex-direction:row-reverse;}
+  .miniava{width:30px;height:30px;border-radius:50%;flex:0 0 30px;overflow:hidden;background:#dfe7f0 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .bubwrap{max-width:74%;display:flex;flex-direction:column;}
+  .row.me .bubwrap{align-items:flex-end;}
+  .bubble{padding:9px 12px;border-radius:16px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;animation:pop .25s ease;}
+  @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .row.ai .bubble{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.6);color:var(--ink);border-bottom-left-radius:5px;backdrop-filter:blur(8px);}
+  .row.me .bubble{background:var(--user);color:#fff;border-bottom-right-radius:5px;}
+  .time{font-size:10px;color:var(--ink3);margin:4px 4px 0;}
+  .typing{display:flex;gap:4px;padding:12px 14px;}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:tp 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes tp{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+  .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--ink2);text-align:center;padding:30px;}
+  .chat-empty .e{width:66px;height:66px;border-radius:50%;overflow:hidden;background:#dfe7f0 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:38px;}
+  .chat-empty p{font-size:12.5px;line-height:1.7;}
+  .composer{flex:0 0 auto;padding:8px 12px 10px;display:flex;gap:8px;align-items:flex-end;position:relative;z-index:10;}
+  .composer .box{flex:1;display:flex;align-items:flex-end;border-radius:22px;padding:5px 6px 5px 14px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.6);backdrop-filter:blur(8px);}
+  .composer textarea{flex:1;resize:none;border:none;background:transparent;outline:none;font-family:inherit;font-size:14px;line-height:1.5;max-height:72px;padding:5px 0;color:var(--ink);}
+  .composer .send{width:36px;height:36px;flex:0 0 36px;border:none;border-radius:50%;cursor:pointer;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+  .composer .send svg{width:16px;height:16px;}
+  .composer .send:active{transform:scale(.9);}.composer .send:disabled{opacity:.5;}
+  .warnbar{margin:0 14px 6px;background:rgba(255,250,235,.7);border:1px solid rgba(220,200,150,.5);color:#8a7433;font-size:11.5px;padding:8px 12px;border-radius:12px;line-height:1.6;}
+
+  /* 键盘 - 紧凑版，避免遮住太多内容 */
+  .keyboard{flex:0 0 auto;background:rgba(228,234,241,.97);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.6);
+    max-height:200px;transition:max-height .28s ease;overflow:hidden;
+  }
+  .keyboard.show{max-height:200px;padding:4px 4px 7px;}
+  .kb-cand{display:flex;gap:5px;overflow-x:auto;min-height:28px;align-items:center;padding:2px 4px;}
+  .kb-cand::-webkit-scrollbar{height:0;}
+  .kb-cand .py{color:var(--accent);font-size:12px;font-weight:600;white-space:nowrap;padding:2px 4px;}
+  .kb-cand .cd{font-size:15px;padding:3px 9px;border-radius:7px;background:rgba(255,255,255,.75);cursor:pointer;white-space:nowrap;}
+  .kb-row{display:flex;gap:4px;justify-content:center;margin:4px 2px;}
+  .key{flex:1;min-width:0;height:34px;border-radius:7px;background:#fff;box-shadow:0 1px 1.5px rgba(90,110,140,.25);
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink);cursor:pointer;user-select:none;
+  }
+  .key:active{background:#d6dfe9;}
+  .key.fn{flex:1.35;background:#b9c5d6;font-size:11.5px;color:#3f4a5a;}
+  .key.send{flex:1.7;background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+  .key.space{flex:4;font-size:11px;color:var(--ink2);}
+  .kb-emoji{display:flex;flex-wrap:wrap;max-height:120px;overflow-y:auto;padding:3px;}
+  .kb-emoji::-webkit-scrollbar{width:0;}
+  .kb-emoji span{font-size:21px;padding:3px 0;cursor:pointer;width:12.5%;text-align:center;}
+
+  .plusbtn{width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.6);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+  .plusbtn svg{width:18px;height:18px;transition:transform .25s;}
+  .plusbtn.on svg{transform:rotate(45deg);}
+  .pluspanel{display:none;padding:12px 16px;gap:14px;flex-wrap:wrap;flex:0 0 auto;}
+  .pluspanel.show{display:flex;}
+  .pp-item{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:58px;}
+  .pp-item:active{transform:scale(.94);}
+  .pp-ic{width:52px;height:52px;border-radius:15px;background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;color:var(--ink);}
+  .pp-ic svg{width:24px;height:24px;}
+  .pp-item span{font-size:10.5px;color:var(--ink2);}
+
+  .bubble.bimg{padding:4px;}
+  .bubble.bimg img{max-width:180px;max-height:220px;border-radius:12px;display:block;}
+  .bubble.btransfer{background:#f8a13a!important;color:#fff!important;border:none!important;padding:0!important;min-width:196px;border-radius:8px!important;overflow:hidden;box-shadow:0 2px 8px -4px rgba(210,140,60,.5);}
+  .btransfer .tf-top{display:flex;align-items:center;gap:12px;padding:13px 14px 12px;}
+  .btransfer .tf-ic{width:34px;height:34px;flex:0 0 34px;}
+  .btransfer .tf-ic svg{width:34px;height:34px;}
+  .btransfer .tf-amt{font-size:18px;font-weight:700;line-height:1.15;}
+  .btransfer .tf-st{font-size:11px;opacity:.92;margin-top:4px;}
+  .btransfer .tf-foot{font-size:10px;padding:6px 14px;border-top:1px solid rgba(255,255,255,.28);opacity:.95;}
+  .row.sys{justify-content:center;}
+  .row.sys .bubble{background:rgba(0,0,0,.06);color:var(--ink2);font-size:11px;padding:4px 10px;border-radius:8px;}
+  .btransfer.tf-pending{background:#f8a13a!important;color:#fff!important;}
+  .btransfer.tf-received{background:#fbe4c4!important;color:#d38f3c!important;}
+  .btransfer.tf-refunded{background:#efe6db!important;color:#b5a082!important;}
+  .btransfer .tf-note{font-size:11px;margin-top:3px;opacity:.9;white-space:normal;word-break:break-word;}
+  .tnote{width:100%;max-width:280px;border:none;border-bottom:1px solid var(--line);background:transparent;padding:9px 4px;font-size:13px;font-family:inherit;color:var(--ink);outline:none;text-align:center;}
+
+  /* 通话页 */
+  .callpage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:50px 24px 40px;background:linear-gradient(160deg,#3a4a63 0%,#2c3a52 50%,#1e2a3e 100%);color:#fff;overflow:hidden;}
+  .call-top{text-align:center;}
+  .call-status{font-size:13px;opacity:.75;margin-bottom:10px;letter-spacing:1px;}
+  .call-name{font-size:24px;font-weight:600;letter-spacing:.5px;}
+  .call-time{font-size:14px;margin-top:8px;font-variant-numeric:tabular-nums;}
+  .call-ava{width:128px;height:128px;border-radius:50%;background:#556a8a center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:58px;margin-top:14px;box-shadow:0 8px 40px -10px rgba(0,0,0,.6);animation:callPulse 2s ease-in-out infinite;}
+  .call-ava.connected{animation:none;}
+  @keyframes callPulse{0%,100%{box-shadow:0 8px 40px -10px rgba(0,0,0,.6),0 0 0 0 rgba(255,255,255,.15);}50%{box-shadow:0 8px 40px -10px rgba(0,0,0,.6),0 0 0 24px rgba(255,255,255,0);}}
+  .call-btns{display:flex;gap:36px;align-items:center;}
+  .call-btn{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);transition:transform .15s;}
+  .call-btn svg{width:26px;height:26px;color:#fff;}
+  .call-btn:active{transform:scale(.9);}
+  .call-btn.hangup{background:#ff5a5a;border:none;}
+  .call-btn.hangup svg{color:#fff;}
+  .call-btn.active{background:rgba(255,255,255,.9);}
+  .call-btn.active svg{color:#2c3a52;}
+  .call-labels{display:flex;gap:36px;justify-content:center;margin-top:10px;font-size:11px;opacity:.7;}
+  .call-labels span{width:60px;text-align:center;}
+  .callTip{font-size:11px;opacity:.55;margin-top:18px;text-align:center;line-height:1.6;}
+  .chat-top .tool.call{margin-right:4px;}
+  .call-float{position:absolute;top:80px;right:14px;z-index:200;width:56px;height:56px;border-radius:50%;
+    background:linear-gradient(160deg,#3a4a63,#1e2a3e);box-shadow:0 6px 20px -6px rgba(0,0,0,.5);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+    border:2px solid rgba(255,255,255,.25);overflow:hidden;
+  }
+  .call-float .cf-ava{width:30px;height:30px;border-radius:50%;background:#556a8a center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .call-float .cf-time{font-size:9px;color:#fff;margin-top:1px;font-variant-numeric:tabular-nums;}
+  .call-minbtn{position:absolute;top:14px;left:18px;width:32px;height:32px;border-radius:50%;
+    background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;
+    border:1px solid rgba(255,255,255,.15);z-index:5;
+  }
+  .call-minbtn svg{width:18px;height:18px;color:#fff;}
+  .call-minbtn:active{background:rgba(255,255,255,.25);}
+
+  /* 钱包 */
+  .wpage{padding:0 14px 16px;overflow-y:auto;flex:1;min-height:0;}
+  .wpage::-webkit-scrollbar{width:0;}
+  .wcard{border-radius:20px;padding:18px;margin-top:12px;}
+  .wcard .wlabel{font-size:12px;color:var(--ink2);}
+  .wcard .wbal{font-size:34px;font-weight:800;margin-top:6px;letter-spacing:.5px;}
+  .wcard .wbal2{font-size:23px;font-weight:700;margin-top:4px;}
+  .wcard.mini{padding:14px 18px;}
+  .wbtns{display:flex;gap:10px;margin-top:15px;}
+  .wbtns button{flex:1;padding:11px;border-radius:12px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;}
+  .wbtns button.ghost{background:rgba(255,255,255,.6);color:var(--ink);}
+  .wlog{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;margin-bottom:8px;font-size:13px;}
+  .wlog .wl-t{flex:1;}
+  .wlog .wl-time{font-size:10px;color:var(--ink3);}
+
+  /* ===== 转账页面 - 紧凑固定版 ===== */
+  #pageTransfer { overflow: hidden; padding: 0; gap: 0; }
+  .tpage{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 20px 14px;gap:8px;
+    overflow:hidden;min-height:0;
+  }
+  .trecv{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto;}
+  .tava{width:46px;height:46px;border-radius:50%;background:#dfe7f0 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:23px;overflow:hidden;border:2px solid rgba(255,255,255,.7);}
+  .tname{font-size:13px;font-weight:600;}
+  .tamount{display:flex;align-items:center;gap:5px;border-bottom:2px solid var(--accent);padding:2px 0;width:100%;max-width:230px;justify-content:center;flex:0 0 auto;}
+  .tcur{font-size:22px;font-weight:700;}
+  .tamount input{border:none;background:transparent;outline:none;font-size:30px;font-weight:700;font-family:inherit;color:var(--ink);width:64%;text-align:center;}
+  .tconfirm{width:100%;max-width:250px;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 6px 16px -8px var(--accent);flex:0 0 auto;}
+  .tkeypad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:100%;max-width:250px;
+    flex:0 0 auto;
+    overflow-y:auto;
+    min-height:0;
+    align-content:center;
+  }
+  .tkeypad::-webkit-scrollbar{width:0;}
+  .tkey{padding:9px 0;border-radius:10px;background:rgba(255,255,255,.6);text-align:center;font-size:17px;font-weight:600;cursor:pointer;color:var(--ink);user-select:none;}
+  .tkey:active{background:rgba(255,255,255,.95);}
+
+  /* 档案馆/备忘录共用 */
+  .memHint{padding:10px 16px;font-size:12px;color:var(--ink2);line-height:1.7;flex:0 0 auto;}
+  .memList{flex:1;overflow-y:auto;padding:0 14px 14px;min-height:0;}
+  .memList::-webkit-scrollbar{width:0;}
+  .memItem{border-radius:16px;padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px;}
+  .memItem:active{transform:scale(.99);}
+  .memItem .mi-t{font-size:14px;font-weight:600;color:var(--ink);}
+  .memItem .mi-c{font-size:12px;color:var(--ink2);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .memItem .mi-d{font-size:10px;color:var(--ink3);}
+
+  /* 设置 */
+  #pageSet .st-title{font-size:20px;font-weight:700;padding:4px 2px 2px;}
+  .sec-title{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.5px;margin:8px 2px 2px;}
+  .setlist{border-radius:18px;overflow:hidden;margin-top:6px;}
+  .setrow{display:flex;align-items:center;justify-content:space-between;padding:15px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.4);font-size:14px;font-weight:500;color:var(--ink);}
+  .setrow:last-child{border-bottom:none;}
+  .setrow:active{background:rgba(255,255,255,.45);}
+  .setrow i{color:var(--ink3);font-style:normal;font-size:20px;line-height:1;}
+  .detail-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex:0 0 auto;}
+  .detail-top .back{width:32px;height:32px;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);}
+  .detail-top .back svg{width:20px;height:20px;}
+  .detail-title{font-size:19px;font-weight:700;}
+  .sec{display:flex;flex-direction:column;gap:14px;overflow-y:auto;min-height:0;flex:1;}
+  .card{border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:14px;}
+  .field label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--ink);}
+  .field input,.field textarea{width:100%;border:1px solid rgba(255,255,255,.6);border-radius:12px;padding:10px 12px;font-size:13.5px;font-family:inherit;background:rgba(255,255,255,.6);color:var(--ink);outline:none;}
+  .field input:focus,.field textarea:focus{border-color:var(--accent);background:rgba(255,255,255,.85);}
+  .field .tip{font-size:11px;color:var(--ink2);margin-top:5px;line-height:1.5;}
+  .row2{display:flex;gap:10px;}.row2 .field{flex:1;}
+  .avaEdit{display:flex;gap:13px;align-items:center;}
+  .avaPreview{width:60px;height:60px;border-radius:50%;flex:0 0 60px;overflow:hidden;background:#dfe7f0 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:30px;border:2px solid rgba(255,255,255,.7);}
+  .wallPv{width:70px;height:100px;border-radius:14px;flex:0 0 70px;overflow:hidden;background:#dfe7f0 center/cover no-repeat;border:2px solid rgba(255,255,255,.7);}
+  .avaR{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .avaBtns{display:flex;gap:8px;flex-wrap:wrap;}
+  .miniBtn{padding:7px 10px;border-radius:10px;font-size:11.5px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+  .miniBtn svg{width:14px;height:14px;}
+  .miniBtn.ghost{background:rgba(255,255,255,.6);color:var(--ink);}
+  .avaR input{width:100%;border:1px solid rgba(255,255,255,.6);border-radius:10px;padding:7px 10px;font-size:12.5px;font-family:inherit;outline:none;background:rgba(255,255,255,.6);color:var(--ink);}
+  .segbtns{display:flex;gap:8px;}
+  .seg{flex:1;padding:9px;border-radius:11px;border:none;background:rgba(255,255,255,.5);color:var(--ink2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .seg.on{background:var(--accent);color:#fff;}
+  .trk{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.5);font-size:12.5px;cursor:pointer;}
+  .trk.cur{border:1px solid var(--accent);}
+  .trk .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trk .del{color:#c68;cursor:pointer;font-size:16px;line-height:1;flex:0 0 auto;padding:0 4px;}
+  .btn{width:100%;padding:13px;border-radius:15px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff;box-shadow:0 8px 18px -9px var(--accent);}
+  .save-tip{font-size:12px;color:#5a9a78;text-align:center;height:14px;}
+
+  .tabbar{flex:0 0 auto;position:relative;z-index:20;display:flex;padding:8px;gap:6px;}
+  .tabbar .tab{flex:1;border-radius:16px;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--ink2);transition:.2s;}
+  .tabbar .tab svg{width:20px;height:20px;}
+  .tabbar .tab .lb{font-size:9.5px;letter-spacing:.5px;}
+  .tabbar .tab.on{color:var(--ink);background:rgba(255,255,255,.5);}
+  .hidden{display:none!important;}
+
+  .memMask{position:absolute;inset:0;background:rgba(40,50,65,.38);z-index:70;opacity:0;pointer-events:none;transition:.3s;border-radius:40px;}
+  .memMask.show{opacity:1;pointer-events:auto;}
+  .memSheet{position:absolute;left:0;right:0;bottom:0;z-index:71;border-radius:24px 24px 0 0;padding:8px 18px 22px;transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;gap:11px;max-height:70vh;overflow-y:auto;}
+  .memSheet.show{transform:translateY(0);}
+  .memSheet .grip{width:42px;height:5px;border-radius:3px;background:#c7cfd8;margin:6px auto 4px;}
+  .memSheet .hd{font-size:15px;font-weight:700;}
+  .memSheet input,.memSheet textarea{border:1px solid rgba(255,255,255,.6);border-radius:12px;padding:10px 12px;font-size:13.5px;font-family:inherit;background:rgba(255,255,255,.75);color:var(--ink);outline:none;}
+  .memSheet textarea{min-height:120px;resize:vertical;line-height:1.65;}
+  .memSheet .acts{display:flex;gap:10px;margin-top:2px;}
+  .memSheet .acts button{flex:1;padding:12px;border-radius:13px;border:none;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .memSheet .acts .del{background:rgba(255,255,255,.6);color:#c07070;}
+  .memSheet .acts .ok{background:var(--accent);color:#fff;}
+</style>
+</head>
+<body>
+<div class="phone"><div class="screen" id="screen">
+  <div class="island"></div>
+  <div class="statusbar"><span id="clock">0:17</span>
+    <div class="right"><div class="bars"><i></i><i></i><i></i><i></i></div><span style="font-size:11px">5G</span><div class="batt"><i></i></div></div></div>
+  <div class="stage">
+    <!-- 主页 -->
+    <div class="page active" id="pageHome">
+      <div class="home-scroll">
+        <div class="profile glass">
+          <div class="pcover" id="pcover"></div>
+          <div class="pmask"></div>
+          <div class="ava" id="homeAva">🌙</div>
+          <div class="body">
+            <div class="name" id="homeName">Observer</div>
+            <div class="sig mono" id="homeSig">在 <span class="cy">Sector 404</span> 静静观察</div>
+            <div class="tag mono">Sector 404</div>
+            <div class="days" id="homeDays">已相伴 1 天</div>
+          </div>
+        </div>
+        <div class="homerow">
+          <div class="grid">
+            <div class="cell glass" data-go="chat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.4A8 8 0 1 1 21 11.5Z"/></svg></div><div class="lb">对话</div></div>
+            <div class="cell glass" data-go="music"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></div><div class="lb">音乐</div></div>
+            <div class="cell glass" data-go="book"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="4" rx="1"/><path d="M5.2 8v11.5h13.6V8"/><path d="M9.5 12h5"/></svg></div><div class="lb">档案馆</div></div>
+            <div class="cell glass" data-go="note"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v9l-4 4H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M15 19v-4h4"/><path d="M9 9h6M9 12.5h4"/></svg></div><div class="lb">备忘录</div></div>
+          </div>
+          <div class="calcard glass" id="calCard"></div>
+        </div>
+        <div class="player glass">
+          <div id="customCtl">
+            <div class="top"><div class="disc" id="disc"></div><div class="info"><div class="ti" id="mTi">未设置音乐</div><div class="su mono" id="mSu">去设置里添加一首歌</div></div></div>
+            <div class="times mono"><span id="curT">0:00</span><span id="durT">0:00</span></div>
+            <div class="bar" id="progBar"><b id="progB"></b></div>
+            <div class="ctrl">
+              <div class="cbtn" id="btnPrev"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 5v14l-10-7z"/><rect x="5" y="5" width="2" height="14" rx="1"/></svg></div>
+              <div class="pp" id="pp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l13 7-13 7z"/></svg></div>
+              <div class="cbtn" id="btnNext"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/><rect x="17" y="5" width="2" height="14" rx="1"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <div class="quote glass">
+          <b>今日心语</b>
+          在安静的角落里，做一个温柔的观察者。星星不说话，只是把光洒向每一个需要它的夜晚。
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span class="lb">首页</span></div>
+        <div class="tab" data-tab="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.4A8 8 0 1 1 21 11.5Z"/></svg><span class="lb">对话</span></div>
+        <div class="tab" data-tab="book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="4" rx="1"/><path d="M5.2 8v11.5h13.6V8"/></svg><span class="lb">档案</span></div>
+        <div class="tab" data-tab="wallet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg><span class="lb">钱包</span></div>
+        <div class="tab" data-tab="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.2.6.7 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span class="lb">设置</span></div>
+      </div>
+    </div>
+
+    <!-- 聊天 -->
+    <div class="page" id="pageChat">
+      <div class="chat-top glass">
+        <div class="back" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="cava" id="chatAva">🌙</div>
+        <div class="meta"><div class="nm" id="chatName">Observer</div><div class="stt"><span class="dot"></span>在线 · 随时陪你</div></div>
+        <div class="tool" id="callBtn" title="语音通话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2Z"/></svg></div>
+        <div class="tool" id="clearBtn" title="清空"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg></div>
+      </div>
+      <div class="warnbar" id="cfgWarn">还没连上 AI～ 去「设置」填入接口就能对话啦。</div>
+      <div class="messages" id="msgs">
+        <div class="chat-empty">
+          <div class="e">🌙</div>
+          <p>嗨，我是 Observer<br/>有什么想聊的吗？</p>
+        </div>
+      </div>
+      <div class="composer">
+        <button class="plusbtn" id="plusBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        <div class="box"><textarea id="input" rows="1" placeholder="发送给它…"></textarea></div>
+        <button class="send" id="sendBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10.5 13.5M21 3l-7 18-3.5-7.5L3 10z"/></svg></button>
+      </div>
+      <div class="pluspanel" id="plusPanel">
+        <div class="pp-item" id="ppImg"><div class="pp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 21"/></svg></div><span>图片</span></div>
+        <div class="pp-item" id="ppMoney"><div class="pp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></div><span>转账</span></div>
+        <div class="pp-item" id="ppWallet"><div class="pp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h12v2M3 8v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H5"/><circle cx="16.5" cy="13" r="1.3"/></svg></div><span>钱包</span></div>
+      </div>
+      <input type="file" id="imgInput" accept="image/*" hidden>
+      <div class="keyboard" id="keyboard"><div class="kb-cand" id="kbCand"></div><div id="kbKeys"></div></div>
+    </div>
+
+    <!-- 世界书 -->
+    <div class="page" id="pageBook">
+      <div class="chat-top glass">
+        <div class="back" data-back="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="meta"><div class="nm">档案馆 · 记忆</div><div class="stt" style="color:var(--ink2)">这些会被 AI 长期记住</div></div>
+        <div class="tool" id="addMem" title="新建记忆"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div class="memHint">在这里写下重要的人、事、约定与设定，对话时 AI 会自动记起它们。</div>
+      <div class="memList" id="memList">
+        <div class="memItem glass"><div class="mi-t">关于我</div><div class="mi-c">我是一个喜欢安静的观察者，偏爱夜晚和星空。</div><div class="mi-d">3天前</div></div>
+      </div>
+    </div>
+
+    <!-- 备忘录 -->
+    <div class="page" id="pageNote">
+      <div class="chat-top glass">
+        <div class="back" data-back="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="meta"><div class="nm">备忘录</div><div class="stt" style="color:var(--ink2)">你和 AI 都能往这里写</div></div>
+        <div class="tool" id="addNote" title="新建"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div class="memHint">随手记下待办、约定；在对话里让 AI 帮你记的事，也会自动出现在这里。</div>
+      <div class="memList" id="noteList">
+        <div class="memItem glass"><div class="mi-t">待办事项</div><div class="mi-c">1. 读完那本喜欢的书\n2. 周末去看星星</div><div class="mi-d">今天</div></div>
+      </div>
+    </div>
+
+    <!-- 音乐 -->
+    <div class="page" id="pageMusic">
+      <div class="chat-top glass">
+        <div class="back" data-back="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="meta"><div class="nm">音乐</div><div class="stt" style="color:var(--ink2)">点一首开始播放</div></div>
+        <div class="tool" id="addMusicBtn" title="添加音乐"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div class="memList" id="musicPageList">
+        <div class="memItem glass"><div class="mi-t">夜曲</div><div class="mi-c">周杰伦</div><div class="mi-d">4:23</div></div>
+      </div>
+    </div>
+
+    <!-- 钱包 -->
+    <div class="page" id="pageWallet">
+      <div class="chat-top glass">
+        <div class="back" data-back="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="meta"><div class="nm">钱包</div><div class="stt" style="color:var(--ink2)">虚拟余额 · 仅供好玩</div></div>
+      </div>
+      <div class="wpage">
+        <div class="wcard glass">
+          <div class="wlabel">我的余额</div>
+          <div class="wbal" id="wMe">¥0</div>
+          <div class="wbtns"><button id="wSend">转账给 TA</button><button class="ghost" id="wCharge">设置余额</button></div>
+        </div>
+        <div class="wcard glass mini">
+          <div class="wlabel" id="wAiLabel">TA 的余额</div>
+          <div class="wbal2" id="wAi">¥0</div>
+        </div>
+        <div class="sec-title" style="margin:16px 2px 8px">转账记录</div>
+        <div id="wLog"></div>
+      </div>
+    </div>
+
+    <!-- 转账 -->
+    <div class="page" id="pageTransfer">
+      <div class="chat-top glass">
+        <div class="back" id="backTransfer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+        <div class="meta"><div class="nm">转账</div><div class="stt" id="tRecvLabel" style="color:var(--ink2)">转给 TA</div></div>
+      </div>
+      <div class="tpage">
+        <div class="trecv"><div class="tava" id="tAva">🌙</div><div class="tname" id="tName">Observer</div></div>
+        <div class="tamount"><span class="tcur">¥</span><input id="tAmt" readonly placeholder="0"></div>
+        <input id="tNote" class="tnote" placeholder="添加转账备注（可选）" maxlength="30">
+        <div id="tBalTip" style="font-size:11.5px;color:var(--ink2)">当前余额 ¥0</div>
+        <div class="tkeypad" id="tKeypad">
+          <div class="tkey" data-n="1">1</div><div class="tkey" data-n="2">2</div><div class="tkey" data-n="3">3</div>
+          <div class="tkey" data-n="4">4</div><div class="tkey" data-n="5">5</div><div class="tkey" data-n="6">6</div>
+          <div class="tkey" data-n="7">7</div><div class="tkey" data-n="8">8</div><div class="tkey" data-n="9">9</div>
+          <div class="tkey" data-n=".">.</div><div class="tkey" data-n="0">0</div><div class="tkey" data-n="del">⌫</div>
+        </div>
+        <button class="tconfirm" id="tConfirm">转 账</button>
+      </div>
+    </div>
+
+    <!-- 通话 -->
+    <div class="page" id="pageCall">
+      <div class="callpage">
+        <div class="call-minbtn" id="minCallBtn" title="缩小">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </div>
+        <div class="call-top">
+          <div class="call-status" id="callStatus">正在呼叫…</div>
+          <div class="call-name" id="callName">Observer</div>
+          <div class="call-time" id="callTime" style="display:none">00:00</div>
+          <div class="call-ava" id="callAva">🌙</div>
+        </div>
+        <div>
+          <div class="call-btns">
+            <div class="call-btn" id="muteBtn" title="静音"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 1-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div>
+            <div class="call-btn hangup" id="hangupBtn" title="挂断"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2Z"/></svg></div>
+            <div class="call-btn" id="speakerBtn" title="免提"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></div>
+          </div>
+          <div class="call-labels"><span>静音</span><span>挂断</span><span>免提</span></div>
+          <div class="callTip">模拟通话 · 接入真实语音后可实时对话</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 设置 -->
+    <div class="page" id="pageSet">
+      <div id="setMenu">
+        <div class="st-title">设置</div>
+        <div class="setlist glass">
+          <div class="setrow" data-sec="appear"><span>外观 · 壁纸</span><i>›</i></div>
+          <div class="setrow" data-sec="avatar"><span>头像自定义</span><i>›</i></div>
+          <div class="setrow" data-sec="music"><span>音乐</span><i>›</i></div>
+          <div class="setrow" data-sec="ai"><span>AI 设定</span><i>›</i></div>
+          <div class="setrow" data-sec="api"><span>接口连接</span><i>›</i></div>
+          <div class="setrow" data-sec="data"><span>数据备份</span><i>›</i></div>
+        </div>
+      </div>
+      <div id="setDetail" style="display:none">
+        <div class="detail-top">
+          <div class="back" id="backSet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+          <div class="detail-title" id="detailTitle">设置</div>
+        </div>
+        <div class="sec" id="secContent"></div>
+      </div>
+    </div>
+
+    <!-- 记忆编辑弹层 -->
+    <div class="memMask" id="memMask"></div>
+    <div class="memSheet glass" id="memSheet">
+      <div class="grip"></div>
+      <div class="hd" id="memSheetTitle">新建记忆</div>
+      <input id="memTitle" placeholder="标题">
+      <textarea id="memContent" placeholder="内容"></textarea>
+      <div class="acts">
+        <button class="del" id="memDel" style="display:none">删除</button>
+        <button class="ok" id="memOk">保存</button>
+      </div>
+    </div>
+
+    <!-- 通话悬浮球 -->
+    <div class="call-float hidden" id="callFloat">
+      <div class="cf-ava" id="cfAva">🌙</div>
+      <div class="cf-time" id="cfTime">00:00</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+(function(){
+  // ========== 工具函数 ==========
+  const $ = id => document.getElementById(id);
+  const pages = ['Home','Chat','Book','Note','Music','Wallet','Transfer','Call','Set'];
+  function go(page){
+    pages.forEach(p=>$('page'+p).classList.remove('active'));
+    $('page'+page).classList.add('active');
+    document.querySelectorAll('.tabbar .tab').forEach(t=>{
+      t.classList.toggle('on', t.dataset.tab===page.toLowerCase());
+    });
+  }
+
+  // ========== 状态栏时钟 ==========
+  function updateClock(){
+    const d=new Date();
+    $('clock').textContent=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  updateClock(); setInterval(updateClock,30000);
+
+  // ========== 日历 ==========
+  function renderCal(){
+    const d=new Date();
+    const y=d.getFullYear(), m=d.getMonth(), today=d.getDate();
+    const first=new Date(y,m,1).getDay();
+    const days=new Date(y,m+1,0).getDate();
+    const monNames=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    let html='<div class="cmon">'+y+' '+monNames[m]+'</div><div class="cgrid">';
+    ['日','一','二','三','四','五','六'].forEach(h=>html+='<span class="hd">'+h+'</span>');
+    for(let i=0;i<first;i++) html+='<span></span>';
+    for(let i=1;i<=days;i++){
+      html+='<span'+(i===today?' class="today"':'')+'>'+i+'</span>';
+    }
+    html+='</div>';
+    $('calCard').innerHTML=html;
+  }
+  renderCal();
+
+  // ========== Tabbar 导航 ==========
+  document.querySelectorAll('.tabbar .tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      const tab=t.dataset.tab;
+      const map={home:'Home',chat:'Chat',book:'Book',wallet:'Wallet',set:'Set'};
+      go(map[tab]||'Home');
+    });
+  });
+  document.querySelectorAll('[data-go]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const g=el.dataset.go;
+      const map={chat:'Chat',music:'Music',book:'Book',note:'Note',wallet:'Wallet'};
+      go(map[g]||'Home');
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(el=>{
+    el.addEventListener('click',()=>go('Home'));
+  });
+  $('backBtn').addEventListener('click',()=>go('Home'));
+  $('backTransfer').addEventListener('click',()=>go('Wallet'));
+
+  // ========== 设置页 ==========
+  const setSecs={
+    appear:{title:'外观 · 壁纸',html:`
+      <div class="card glass">
+        <div class="avaEdit">
+          <div class="wallPv" id="wallPv"></div>
+          <div class="avaR">
+            <div style="font-size:13px;font-weight:600;">壁纸预览</div>
+            <div class="avaBtns">
+              <button class="miniBtn ghost">默认蓝</button>
+              <button class="miniBtn ghost">暖粉</button>
+              <button class="miniBtn ghost">星空</button>
+            </div>
+            <div class="tip" style="font-size:11px;color:var(--ink2);">选择你喜欢的背景色调</div>
+          </div>
+        </div>
+      </div>
+    `},
+    avatar:{title:'头像自定义',html:`
+      <div class="card glass">
+        <div class="avaEdit">
+          <div class="avaPreview" id="setAvaPv">🌙</div>
+          <div class="avaR">
+            <div class="avaBtns">
+              <button class="miniBtn ghost">🌙</button>
+              <button class="miniBtn ghost">🐱</button>
+              <button class="miniBtn ghost">🌸</button>
+              <button class="miniBtn ghost">⭐</button>
+              <button class="miniBtn ghost">🦊</button>
+            </div>
+            <div class="tip" style="font-size:11px;color:var(--ink2);">选一个表情作为头像</div>
+          </div>
+        </div>
+        <div class="field"><label>昵称</label><input value="Observer"></div>
+        <div class="field"><label>个性签名</label><input value="在 Sector 404 静静观察"></div>
+      </div>
+    `},
+    music:{title:'音乐',html:`
+      <div class="card glass">
+        <div class="segbtns">
+          <button class="seg on">本地音乐</button>
+          <button class="seg">网易云</button>
+        </div>
+        <div class="trk cur"><span class="tn">夜曲 - 周杰伦</span><span class="del">×</span></div>
+        <div class="trk"><span class="tn">晴天 - 周杰伦</span><span class="del">×</span></div>
+        <button class="miniBtn ghost">+ 添加音乐</button>
+      </div>
+    `},
+    ai:{title:'AI 设定',html:`
+      <div class="card glass">
+        <div class="field"><label>AI 名字</label><input value="Observer"></div>
+        <div class="field"><label>AI 性格</label><textarea rows="3">温柔、安静、善于倾听，像一个深夜陪伴你的朋友。</textarea></div>
+        <div class="field"><label>关系设定</label><input value="朋友"></div>
+        <div class="save-tip" id="aiSaveTip"></div>
+        <button class="btn">保存设定</button>
+      </div>
+    `},
+    api:{title:'接口连接',html:`
+      <div class="card glass">
+        <div class="field"><label>接口地址</label><input placeholder="https://api.example.com/v1/chat/completions"></div>
+        <div class="field"><label>API Key</label><input type="password" placeholder="sk-..."></div>
+        <div class="field"><label>模型</label><input value="gpt-3.5-turbo"></div>
+        <div class="tip">填入后就能和 AI 对话啦。支持 OpenAI 兼容接口。</div>
+        <button class="btn">保存并测试连接</button>
+      </div>
+    `},
+    data:{title:'数据备份',html:`
+      <div class="card glass">
+        <button class="btn ghost">导出所有数据</button>
+        <button class="btn ghost">导入数据</button>
+        <button class="btn" style="background:#e8a0a0;">清空所有数据</button>
+      </div>
+    `}
+  };
+  document.querySelectorAll('.setrow').forEach(r=>{
+    r.addEventListener('click',()=>{
+      const sec=r.dataset.sec;
+      const cfg=setSecs[sec];
+      if(!cfg)return;
+      $('detailTitle').textContent=cfg.title;
+      $('secContent').innerHTML=cfg.html;
+      $('setMenu').style.display='none';
+      $('setDetail').style.display='flex';
+      $('setDetail').style.flexDirection='column';
+      $('setDetail').style.height='100%';
+      $('setDetail').style.overflow='hidden';
+      $('pageSet').style.flexDirection='column';
+    });
+  });
+  $('backSet').addEventListener('click',()=>{
+    $('setMenu').style.display='block';
+    $('setDetail').style.display='none';
+  });
+
+  // ========== 聊天 - 输入框与键盘 ==========
+  const input=$('input'), sendBtn=$('sendBtn'), msgs=$('msgs');
+  const plusBtn=$('plusBtn'), plusPanel=$('plusPanel');
+  const keyboard=$('keyboard'), kbKeys=$('kbKeys'), kbCand=$('kbCand');
+  let kbMode='text';
+
+  function resizeInput(){
+    input.style.height='auto';
+    input.style.height=Math.min(input.scrollHeight,72)+'px';
+  }
+  input.addEventListener('input',resizeInput);
+
+  input.addEventListener('focus',()=>{
+    showKeyboard();
+  });
+
+  // 模拟键盘显示 - 会把 composer 顶起来
+  function showKeyboard(){
+    keyboard.classList.add('show');
+    renderKbKeys();
+  }
+  function hideKeyboard(){
+    keyboard.classList.remove('show');
+    plusPanel.classList.remove('show');
+    plusBtn.classList.remove('on');
+    input.blur();
+  }
+
+  function renderKbKeys(){
+    let rows;
+    if(kbMode==='text'){
+      rows=[
+        ['q','w','e','r','t','y','u','i','o','p'],
+        ['a','s','d','f','g','h','j','k','l'],
+        ['⇧','z','x','c','v','b','n','m','⌫'],
+        ['123','🌐','space','发送']
+      ];
+    }else if(kbMode==='num'){
+      rows=[
+        ['1','2','3'],
+        ['4','5','6'],
+        ['7','8','9'],
+        ['.','0','⌫']
+      ];
+    }else if(kbMode==='emoji'){
+      const emojis=['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥳','🤩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💀','👻','👽','🤖','💩','😺','😸','😹','😻','😼','😽','🙀','😿','😾','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','🤝','🙏','✍️','💪','🦾','🦵','🦶','👂','👃','🧠','🦷','🦴','👀','👁️','👅','👄','💋','😘','🌸','🌺','🌻','🌹','🌷','🌼','💐','🍀','🌿','🍃','🍂','🍁','🌵','🎋','🌴','🌲','🌳','🌱','🌾','🌿','☘️'];
+      let html='';
+      emojis.slice(0,56).forEach(e=>html+='<span>'+e+'</span>');
+      kbKeys.innerHTML='<div class="kb-emoji">'+html+'</div><div class="kb-row"><div class="key fn" data-k="kb-text">Aa</div><div class="key space" data-k="space">空格</div><div class="key send" data-k="send">发送</div></div>';
+      bindKb();
+      return;
+    }
+    let html='';
+    rows.forEach((row,i)=>{
+      html+='<div class="kb-row">';
+      row.forEach(k=>{
+        let cls='key', dk=k;
+        if(k==='space'){cls+=' space';dk='space';}
+        else if(k==='发送'){cls+=' send';dk='send';}
+        else if(k==='⇧'||k==='123'||k==='🌐'||k==='⌫'){cls+=' fn';}
+        if(k==='123')dk='kb-num';
+        if(k==='🌐')dk='kb-emoji';
+        if(k==='⇧')dk='shift';
+        if(k==='⌫')dk='back';
+        html+='<div class="'+cls+'" data-k="'+dk+'">'+k+'</div>';
+      });
+      html+='</div>';
+    });
+    kbKeys.innerHTML=html;
+    bindKb();
+  }
+  function bindKb(){
+    kbKeys.querySelectorAll('[data-k]').forEach(k=>{
+      k.addEventListener('click',()=>{
+        const act=k.dataset.k;
+        if(act==='send'){sendMsg();return;}
+        if(act==='back'){
+          input.value=input.value.slice(0,-1);resizeInput();return;
+        }
+        if(act==='space'){input.value+=' ';resizeInput();return;}
+        if(act==='kb-num'){kbMode='num';renderKbKeys();return;}
+        if(act==='kb-text'){kbMode='text';renderKbKeys();return;}
+        if(act==='kb-emoji'){kbMode='emoji';renderKbKeys();return;}
+        if(act==='shift'){/* 简化处理 */return;}
+        if(act.length===1){
+          input.value+=act;resizeInput();
+        }
+      });
+    });
+  }
+
+  plusBtn.addEventListener('click',()=>{
+    const on=plusBtn.classList.toggle('on');
+    plusPanel.classList.toggle('show',on);
+    if(on){hideKeyboard();}
+  });
+
+  $('ppWallet').addEventListener('click',()=>{go('Wallet');plusBtn.classList.remove('on');plusPanel.classList.remove('show');});
+  $('ppMoney').addEventListener('click',()=>{go('Transfer');plusBtn.classList.remove('on');plusPanel.classList.remove('show');});
+
+  // 发送消息
+  function sendMsg(){
+    const txt=input.value.trim();
+    if(!txt)return;
+    addMsg(txt,'me');
+    input.value='';resizeInput();
+    // 模拟回复
+    setTimeout(()=>{
+      addMsg('收到你的消息啦～ 我是 Observer，很高兴陪你聊天。','ai');
+    },800);
+  }
+  function addMsg(text,who){
+    const empty=msgs.querySelector('.chat-empty');
+    if(empty)empty.remove();
+    const row=document.createElement('div');
+    row.className='row '+(who==='me'?'me':'ai');
+    row.innerHTML=
+      '<div class="miniava">'+(who==='me'?'😊':'🌙')+'</div>'+
+      '<div class="bubwrap"><div class="bubble">'+text+'</div></div>';
+    msgs.appendChild(row);
+    msgs.scrollTop=msgs.scrollHeight;
+  }
+  sendBtn.addEventListener('click',sendMsg);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}
+  });
+
+  // 清空聊天
+  $('clearBtn').addEventListener('click',()=>{
+    if(confirm('确定清空所有消息？')){
+      msgs.innerHTML='<div class="chat-empty"><div class="e">🌙</div><p>嗨，我是 Observer<br/>有什么想聊的吗？</p></div>';
+    }
+  });
+
+  // ========== 转账 ==========
+  let tVal='';
+  $('tKeypad').addEventListener('click',e=>{
+    const k=e.target.closest('.tkey');
+    if(!k)return;
+    const n=k.dataset.n;
+    if(n==='del'){tVal=tVal.slice(0,-1);}
+    else if(n==='.'){
+      if(!tVal.includes('.')&&tVal.length>0)tVal+='.';
+    }
+    else{
+      if(tVal.includes('.')&&tVal.split('.')[1].length>=2)return;
+      if(tVal==='0'&&n!=='.')tVal=n;
+      else tVal+=n;
+    }
+    $('tAmt').value=tVal;
+    $('tAmt').placeholder=tVal?'':'0';
+  });
+  $('tConfirm').addEventListener('click',()=>{
+    const amt=parseFloat(tVal);
+    if(!amt||amt<=0){alert('请输入转账金额');return;}
+    alert('转账成功 ¥'+amt.toFixed(2));
+    tVal='';$('tAmt').value='';
+    go('Wallet');
+  });
+
+  // 钱包转账入口
+  $('wSend').addEventListener('click',()=>go('Transfer'));
+  $('wCharge').addEventListener('click',()=>{
+    const v=prompt('设置我的余额：','100');
+    if(v!==null){
+      const n=parseFloat(v)||0;
+      $('wMe').textContent='¥'+n.toFixed(2);
+    }
+  });
+
+  // ========== 通话 ==========
+  let callTimer=null,callSec=0,calling=false;
+  function fmtTime(s){
+    const m=Math.floor(s/60),sec=s%60;
+    return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+  }
+  $('callBtn').addEventListener('click',()=>{
+    go('Call');
+    $('callStatus').textContent='正在呼叫…';
+    $('callTime').style.display='none';
+    $('callAva').classList.remove('connected');
+    callSec=0;calling=true;
+    // 模拟3秒后接通
+    setTimeout(()=>{
+      if(!calling)return;
+      $('callStatus').textContent='通话中';
+      $('callTime').style.display='block';
+      $('callAva').classList.add('connected');
+      callTimer=setInterval(()=>{
+        callSec++;
+        $('callTime').textContent=fmtTime(callSec);
+      },1000);
+    },3000);
+  });
+  $('hangupBtn').addEventListener('click',()=>{
+    endCall();
+    go('Chat');
+  });
+  function endCall(){
+    calling=false;
+    if(callTimer){clearInterval(callTimer);callTimer=null;}
+    $('callFloat').classList.add('hidden');
+  }
+  $('minCallBtn').addEventListener('click',()=>{
+    go('Chat');
+    $('callFloat').classList.remove('hidden');
+    $('cfTime').textContent=fmtTime(callSec);
+  });
+  $('callFloat').addEventListener('click',()=>{
+    go('Call');
+  });
+  $('muteBtn').addEventListener('click',()=>$('muteBtn').classList.toggle('active'));
+  $('speakerBtn').addEventListener('click',()=>$('speakerBtn').classList.toggle('active'));
+
+  // ========== 音乐播放器 ==========
+  let playing=false;
+  $('pp').addEventListener('click',()=>{
+    playing=!playing;
+    $('disc').classList.toggle('playing',playing);
+    $('pp').innerHTML=playing
+      ?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+      :'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l13 7-13 7z"/></svg>';
+  });
+
+  // ========== 记忆弹层 ==========
+  let memEditing=null;
+  function openMemSheet(title,isEdit){
+    $('memSheetTitle').textContent=title;
+    $('memTitle').value=isEdit?(memEditing.title||''):'';
+    $('memContent').value=isEdit?(memEditing.content||''):'';
+    $('memDel').style.display=isEdit?'block':'none';
+    $('memMask').classList.add('show');
+    $('memSheet').classList.add('show');
+  }
+  function closeMemSheet(){
+    $('memMask').classList.remove('show');
+    $('memSheet').classList.remove('show');
+    memEditing=null;
+  }
+  $('memMask').addEventListener('click',closeMemSheet);
+
+  $('addMem').addEventListener('click',()=>openMemSheet('新建记忆',false));
+  $('addNote').addEventListener('click',()=>openMemSheet('新建备忘录',false));
+  $('memOk').addEventListener('click',closeMemSheet);
+  $('memDel').addEventListener('click',closeMemSheet);
+
+  // 音乐添加
+  $('addMusicBtn').addEventListener('click',()=>openMemSheet('添加音乐',false));
+
+})();
+</script>
+</body>
+</html>
